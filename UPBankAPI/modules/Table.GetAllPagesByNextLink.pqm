@@ -1,0 +1,8 @@
+﻿(url as text, query as function) as table =>
+    Table.GenerateByPage((previous) =>
+        let
+            nextLink = if (previous = null) then url else Value.Metadata(previous)[NextLink],
+            page = if (nextLink <> null) then query(nextLink) else null
+        in
+            page
+    )
