@@ -17,6 +17,8 @@ This a Power BI custom connector for Up Bank, an Australian neo-bank with an ope
 
 ## Installation
 
+Download the .mez file by clicking [here](https://github.com/nicholas-russell/upbank-powerbi/releases/download/v0.1-alpha/UPBankAPI.mez)
+
 To install the custom connector, create the following folder structure and copy the .mez file to install
 
 ```
@@ -32,5 +34,6 @@ https://api.up.com.au/getting_started
 ## Roadmap
 
 - Data model relationships
+- Example usages
 
 
