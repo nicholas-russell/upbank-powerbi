@@ -1,7 +1,7 @@
 
 # Up Bank Power BI Connector
 
-This a Power BI custom connector for Up Bank, an Australian neo-bank with an open API.
+This is a Power BI custom connector for Up Bank, an Australian neo-bank with an open API.
 
 
 
