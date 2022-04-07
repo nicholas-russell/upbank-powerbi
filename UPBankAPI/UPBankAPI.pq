@@ -1,10 +1,61 @@
 ﻿section UPBankAPI;
 
-api_url = "https://api.up.com.au/api/v1/";
+// Load common library functions
+// Note that when the extension is built, files are all placed in the same directory. 
+// Therefore when referencing them here, they should be without their sub directory
 
+Extension.LoadFunction = (name as text) =>
+    let
+        binary = Extension.Contents(name),
+        asText = Text.FromBinary(binary)
+    in
+        Expression.Evaluate(asText, #shared);
+
+// All in util/
+shared Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
+shared Table.GetAllPagesByNextLink = Extension.LoadFunction("Table.GetAllPagesByNextLink.pqm");
+shared Table.GenerateByPage = Extension.LoadFunction("Table.GenerateByPage.pqm");
+
+// Base Up API Url
+BaseUrl = "https://api.up.com.au/api/v1/";
+
+//Authentication 
+UPBankAPI = [
+    Authentication = [
+        Key = [
+            KeyLabel = Extension.LoadString("AuthKeyLabel"),
+            Label = Extension.LoadString("AuthLabel")
+        ]
+    ],
+    Label = Extension.LoadString("DataSourceLabel")
+];
+
+UPBankAPI.Publish = [
+    Beta = true,
+    Category = "Other",
+    ButtonText = { Extension.LoadString("ButtonTitle"), Extension.LoadString("ButtonHelp") },
+    LearnMoreUrl = "https://github.com/nicholas-russell/upbank-powerbi",
+    SourceImage = UPBankAPI.Icons,
+    SourceTypeImage = UPBankAPI.Icons
+];
+
+UPBankAPI.Icons = [
+    Icon16 = { Extension.Contents("UPBankAPI16.png"), Extension.Contents("UPBankAPI20.png"), Extension.Contents("UPBankAPI24.png"), Extension.Contents("UPBankAPI32.png") },
+    Icon32 = { Extension.Contents("UPBankAPI32.png"), Extension.Contents("UPBankAPI40.png"), Extension.Contents("UPBankAPI48.png"), Extension.Contents("UPBankAPI64.png") }
+];
+
+
+// Headers required for API
 DefaultRequestHeaders = [
     #"Authorization" = "Bearer " & Extension.CurrentCredential()[Key]
 ];
+
+// Function to extract the "next" link for paginated queries
+GetNextLink = (response) as nullable text => 
+     Record.FieldOrDefault(response[links], "next");
+
+
+//-- API tables below --//
 
 UPBankAPI.Ping = (optional message as text) =>
     let
@@ -13,27 +64,10 @@ UPBankAPI.Ping = (optional message as text) =>
     in
         rtn;
 
-GetAccountPage = (url as text) =>
-    let
-        Source = Json.Document(Web.Contents(url, [Headers=DefaultRequestHeaders])),
-        data = Source[data],
-        nextLink = GetNextLink(Source),
-        #"Converted to Table" = Table.FromList(data, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-        #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"type", "id", "attributes", "relationships", "links"}, {"type", "id", "attributes", "relationships", "links"}),
-        #"Expanded attributes" = Table.ExpandRecordColumn(#"Expanded Column1", "attributes", {"displayName", "accountType", "ownershipType", "balance", "createdAt"}, {"attributes.displayName", "attributes.accountType", "attributes.ownershipType", "attributes.balance", "attributes.createdAt"}),
-        #"Expanded attributes.balance" = Table.ExpandRecordColumn(#"Expanded attributes", "attributes.balance", {"currencyCode", "value", "valueInBaseUnits"}, {"attributes.balance.currencyCode", "attributes.balance.value", "attributes.balance.valueInBaseUnits"}),
-        #"Expanded relationships" = Table.ExpandRecordColumn(#"Expanded attributes.balance", "relationships", {"transactions"}, {"relationships.transactions"}),
-        #"Expanded relationships.transactions" = Table.ExpandRecordColumn(#"Expanded relationships", "relationships.transactions", {"links"}, {"relationships.transactions.links"}),
-        #"Expanded relationships.transactions.links" = Table.ExpandRecordColumn(#"Expanded relationships.transactions", "relationships.transactions.links", {"related"}, {"relationships.transactions.links.related"}),
-        #"Expanded links" = Table.ExpandRecordColumn(#"Expanded relationships.transactions.links", "links", {"self"}, {"links.self"}),
-        #"Changed Type" = Table.TransformColumnTypes(#"Expanded links",{{"attributes.balance.value", Currency.Type}, {"attributes.balance.valueInBaseUnits", Int64.Type}, {"attributes.createdAt", type datetimezone}, {"type", type text}, {"id", type text}, {"attributes.displayName", type text}, {"attributes.accountType", type text}, {"attributes.ownershipType", type text}, {"attributes.balance.currencyCode", type text}, {"relationships.transactions.links.related", type text}, {"links.self", type text}})
-    in
-        #"Changed Type" meta [NextLink = nextLink];
-
 
 UPBankAPI.Categories = () =>
     let
-        Source = Json.Document(Web.Contents(api_url & "categories", [Headers=DefaultRequestHeaders])),
+        Source = Json.Document(Web.Contents(BaseUrl & "categories", [Headers=DefaultRequestHeaders])),
         data = Source[data],
         #"Converted to Table" = Table.FromList(data, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
         #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"type", "id", "attributes", "relationships"}, {"type", "id", "attributes", "relationships"}),
@@ -57,8 +91,7 @@ GetTagPage = (url as text) =>
     in
         #"Changed Type" meta [NextLink = nextLink];
 
-GetNextLink = (response) as nullable text => 
-     Record.FieldOrDefault(response[links], "next");
+UPBankAPI.Tags = () => Table.GetAllPagesByNextLink(BaseUrl & "tags", GetTagPage);
 
 GetTransactionPage = (url as text) as table =>
     let
@@ -95,10 +128,28 @@ GetTransactionPage = (url as text) as table =>
     in
         #"Changed Type" meta [NextLink = nextLink];
 
-UPBankAPI.Transactions = () => Table.GetAllPagesByNextLink(api_url & "transactions", GetTransactionPage);
-UPBankAPI.Accounts = () => Table.GetAllPagesByNextLink(api_url & "accounts", GetAccountPage);
-UPBankAPI.Tags = () => Table.GetAllPagesByNextLink(api_url & "tags", GetTagPage);
+UPBankAPI.Transactions = () => Table.GetAllPagesByNextLink(BaseUrl & "transactions", GetTransactionPage);
 
+GetAccountPage = (url as text) =>
+    let
+        Source = Json.Document(Web.Contents(url, [Headers=DefaultRequestHeaders])),
+        data = Source[data],
+        nextLink = GetNextLink(Source),
+        #"Converted to Table" = Table.FromList(data, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+        #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"type", "id", "attributes", "relationships", "links"}, {"type", "id", "attributes", "relationships", "links"}),
+        #"Expanded attributes" = Table.ExpandRecordColumn(#"Expanded Column1", "attributes", {"displayName", "accountType", "ownershipType", "balance", "createdAt"}, {"attributes.displayName", "attributes.accountType", "attributes.ownershipType", "attributes.balance", "attributes.createdAt"}),
+        #"Expanded attributes.balance" = Table.ExpandRecordColumn(#"Expanded attributes", "attributes.balance", {"currencyCode", "value", "valueInBaseUnits"}, {"attributes.balance.currencyCode", "attributes.balance.value", "attributes.balance.valueInBaseUnits"}),
+        #"Expanded relationships" = Table.ExpandRecordColumn(#"Expanded attributes.balance", "relationships", {"transactions"}, {"relationships.transactions"}),
+        #"Expanded relationships.transactions" = Table.ExpandRecordColumn(#"Expanded relationships", "relationships.transactions", {"links"}, {"relationships.transactions.links"}),
+        #"Expanded relationships.transactions.links" = Table.ExpandRecordColumn(#"Expanded relationships.transactions", "relationships.transactions.links", {"related"}, {"relationships.transactions.links.related"}),
+        #"Expanded links" = Table.ExpandRecordColumn(#"Expanded relationships.transactions.links", "links", {"self"}, {"links.self"}),
+        #"Changed Type" = Table.TransformColumnTypes(#"Expanded links",{{"attributes.balance.value", Currency.Type}, {"attributes.balance.valueInBaseUnits", Int64.Type}, {"attributes.createdAt", type datetimezone}, {"type", type text}, {"id", type text}, {"attributes.displayName", type text}, {"attributes.accountType", type text}, {"attributes.ownershipType", type text}, {"attributes.balance.currencyCode", type text}, {"relationships.transactions.links.related", type text}, {"links.self", type text}})
+    in
+        #"Changed Type" meta [NextLink = nextLink];
+
+UPBankAPI.Accounts = () => Table.GetAllPagesByNextLink(BaseUrl & "accounts", GetAccountPage);
+
+//-- Navigation table --//
 
 UPBankNavTable = () as table =>
     let
@@ -112,44 +163,7 @@ UPBankNavTable = () as table =>
         navTable = Table.ToNavigationTable(Source, {"Name"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in
         navTable;
-// Data Source Kind description
 
 [DataSource.Kind="UPBankAPI", Publish="UPBankAPI.Publish"]
 shared UPBankAPI.Contents =  UPBankNavTable;
 
-UPBankAPI = [
-    Authentication = [
-        Key = []
-    ],
-    Label = Extension.LoadString("DataSourceLabel")
-];
-
-// Data Source UI publishing description
-UPBankAPI.Publish = [
-    Beta = true,
-    Category = "Other",
-    ButtonText = { Extension.LoadString("ButtonTitle"), Extension.LoadString("ButtonHelp") },
-    LearnMoreUrl = "https://powerbi.microsoft.com/",
-    SourceImage = UPBankAPI.Icons,
-    SourceTypeImage = UPBankAPI.Icons
-];
-
-UPBankAPI.Icons = [
-    Icon16 = { Extension.Contents("UPBankAPI16.png"), Extension.Contents("UPBankAPI20.png"), Extension.Contents("UPBankAPI24.png"), Extension.Contents("UPBankAPI32.png") },
-    Icon32 = { Extension.Contents("UPBankAPI32.png"), Extension.Contents("UPBankAPI40.png"), Extension.Contents("UPBankAPI48.png"), Extension.Contents("UPBankAPI64.png") }
-];
-
-// 
-// Load common library functions
-// 
-// TEMPORARY WORKAROUND until we're able to reference other M modules
-Extension.LoadFunction = (name as text) =>
-    let
-        binary = Extension.Contents(name),
-        asText = Text.FromBinary(binary)
-    in
-        Expression.Evaluate(asText, #shared);
-
-shared Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
-shared Table.GetAllPagesByNextLink = Extension.LoadFunction("Table.GetAllPagesByNextLink.pqm");
-shared Table.GenerateByPage = Extension.LoadFunction("Table.GenerateByPage.pqm");

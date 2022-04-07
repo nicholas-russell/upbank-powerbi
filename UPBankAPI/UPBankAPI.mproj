@@ -66,13 +66,13 @@
     <Compile Include="icons\UPBankAPI80.png">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="modules\Table.GenerateByPage.pqm">
+    <Compile Include="util\Table.GenerateByPage.pqm">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="modules\Table.GetAllPagesByNextLink.pqm">
+    <Compile Include="util\Table.GetAllPagesByNextLink.pqm">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="modules\Table.ToNavigationTable.pqm">
+    <Compile Include="util\Table.ToNavigationTable.pqm">
       <SubType>Code</SubType>
     </Compile>
     <Content Include="UPBankAPI.query.pq">
@@ -81,7 +81,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="icons\" />
-    <Folder Include="modules" />
+    <Folder Include="util" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <UsingTask TaskName="BuildExtension" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v12.0.dll">
