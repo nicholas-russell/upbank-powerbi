@@ -1,7 +1,7 @@
 
 # Up Bank Power BI Connector
 
-This a Power BI custom connector for Up Bank, an Australian neo-bank with an open API.
+This is a Power BI custom connector for Up Bank, an Australian neo-bank with an open API.
 
 
 
@@ -17,7 +17,9 @@ This a Power BI custom connector for Up Bank, an Australian neo-bank with an ope
 
 ## Installation
 
-To install the custom connector, create the following folder structure and copy the .mez file to install
+Download the .mez file by clicking [here](https://github.com/nicholas-russell/upbank-powerbi/releases/download/v0.1-alpha/UPBankAPI.mez)
+
+Then create the following folder structure and copy the .mez file into it. Power BI does not usually need to be restarted, just open the Get Data menu again.
 
 ```
 C:\Users\user\Documents\Power BI Desktop\Custom Connectors
@@ -32,5 +34,6 @@ https://api.up.com.au/getting_started
 ## Roadmap
 
 - Data model relationships
+- Example usages
 
 
