@@ -1,7 +1,4 @@
-﻿// This file contains your Data Connector logic
-
-section UPBankAPI;
-
+﻿section UPBankAPI;
 
 api_url = "https://api.up.com.au/api/v1/";
 
@@ -9,17 +6,18 @@ DefaultRequestHeaders = [
     #"Authorization" = "Bearer " & Extension.CurrentCredential()[Key]
 ];
 
-shared UPBankAPI.Ping = (optional message as text) =>
+UPBankAPI.Ping = (optional message as text) =>
     let
         Source = Json.Document(Web.Contents("https://api.up.com.au/api/v1/" & "util/ping", [Headers=DefaultRequestHeaders])),
         rtn = Source[meta]
     in
         rtn;
 
-shared UPBankAPI.Accounts = () =>
+GetAccountPage = (url as text) =>
     let
-        Source = Json.Document(Web.Contents(api_url & "accounts", [Headers=DefaultRequestHeaders])),
+        Source = Json.Document(Web.Contents(url, [Headers=DefaultRequestHeaders])),
         data = Source[data],
+        nextLink = GetNextLink(Source),
         #"Converted to Table" = Table.FromList(data, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
         #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"type", "id", "attributes", "relationships", "links"}, {"type", "id", "attributes", "relationships", "links"}),
         #"Expanded attributes" = Table.ExpandRecordColumn(#"Expanded Column1", "attributes", {"displayName", "accountType", "ownershipType", "balance", "createdAt"}, {"attributes.displayName", "attributes.accountType", "attributes.ownershipType", "attributes.balance", "attributes.createdAt"}),
@@ -30,10 +28,10 @@ shared UPBankAPI.Accounts = () =>
         #"Expanded links" = Table.ExpandRecordColumn(#"Expanded relationships.transactions.links", "links", {"self"}, {"links.self"}),
         #"Changed Type" = Table.TransformColumnTypes(#"Expanded links",{{"attributes.balance.value", Currency.Type}, {"attributes.balance.valueInBaseUnits", Int64.Type}, {"attributes.createdAt", type datetimezone}, {"type", type text}, {"id", type text}, {"attributes.displayName", type text}, {"attributes.accountType", type text}, {"attributes.ownershipType", type text}, {"attributes.balance.currencyCode", type text}, {"relationships.transactions.links.related", type text}, {"links.self", type text}})
     in
-        #"Changed Type";
+        #"Changed Type" meta [NextLink = nextLink];
 
 
-shared UPBankAPI.Categories = () =>
+UPBankAPI.Categories = () =>
     let
         Source = Json.Document(Web.Contents(api_url & "categories", [Headers=DefaultRequestHeaders])),
         data = Source[data],
@@ -48,15 +46,16 @@ shared UPBankAPI.Categories = () =>
         #"Changed Type";
 
 
-shared UPBankAPI.Tags = () =>
+GetTagPage = (url as text) =>
     let
-        Source = Json.Document(Web.Contents(api_url & "tags", [Headers=DefaultRequestHeaders])),
+        Source = Json.Document(Web.Contents(url, [Headers=DefaultRequestHeaders])),
         data = Source[data],
+        nextLink = GetNextLink(Source),
         #"Converted to Table" = Table.FromList(data, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
         #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"type", "id"}, {"type", "id"}),
         #"Changed Type" = Table.TransformColumnTypes(#"Expanded Column1",{{"type", type text}, {"id", type text}})
     in
-        #"Changed Type";
+        #"Changed Type" meta [NextLink = nextLink];
 
 GetNextLink = (response) as nullable text => 
      Record.FieldOrDefault(response[links], "next");
@@ -96,7 +95,10 @@ GetTransactionPage = (url as text) as table =>
     in
         #"Changed Type" meta [NextLink = nextLink];
 
-shared UPBankAPI.Transactions = () => Table.GetAllPagesByNextLink(api_url & "transactions", GetTransactionPage);
+UPBankAPI.Transactions = () => Table.GetAllPagesByNextLink(api_url & "transactions", GetTransactionPage);
+UPBankAPI.Accounts = () => Table.GetAllPagesByNextLink(api_url & "accounts", GetAccountPage);
+UPBankAPI.Tags = () => Table.GetAllPagesByNextLink(api_url & "tags", GetTagPage);
+
 
 UPBankNavTable = () as table =>
     let
