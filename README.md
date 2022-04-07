@@ -24,7 +24,10 @@ Then create the following folder structure and copy the .mez file into it. Power
 ```
 C:\Users\user\Documents\Power BI Desktop\Custom Connectors
 ```
-    
+
+Follow these instructions to allow third party unsigned connectors
+https://docs.microsoft.com/en-us/power-bi/connect-data/desktop-connector-extensibility
+
 ## Environment Variables
 
 To run this project, you will need to generate an API key from the following url.
